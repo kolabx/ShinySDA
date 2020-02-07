@@ -22,6 +22,9 @@ Daniel Wells and Victoria Hore (2017). SDAtools: SDAtools: A toolkit for SDA. R 
 Stuart and Butler et al. Comprehensive integration of single cell data. bioRxiv (2018).
 
 
+## Contact: 
 
-Bimber Lab
+Bimber Lab:
+
 @eisamahyari
+
