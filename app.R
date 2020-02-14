@@ -239,11 +239,11 @@ ui <- dashboardPage(skin="red",
                                 h2("DGE_SDA Batched Removed DGE"),
                                 fluidRow(
                                   box(
-                                    title = "tSNe", status = "primary", solidHeader = TRUE,
+                                    title = "tSNE Meta Exploration", status = "primary", solidHeader = TRUE,
                                     collapsible = TRUE,
-                                   # plotOutput("DGE_SDA_tSNE"),
-                                    plotOutput("tSNE_CS_batch"), 
-                                    selectInput("Metaselect", "Meta select:",
+                                   
+                                    plotOutput("tSNE_CS_batch1"),
+                                    selectInput("Metaselect1", "Meta select:",
                                                 c("SampleDate" = "SampleDate",
                                                   "SubjectId" = "SubjectId",
                                                   "ExpID" = "ExpID",
@@ -251,7 +251,49 @@ ui <- dashboardPage(skin="red",
                                                   "SingleR_Labels" = "SingleR_Labels",
                                                   "SingleR_Labels_Fine" = "SingleR_Labels_Fine",
                                                   "Phase" = "Phase"), selected = "SampleDate"),
-                                    width = 10, background = "black"
+                                    width = 5, background = "black"
+                                  ),
+                                  box(
+                                    title = "tSNE Meta Exploration", status = "primary", solidHeader = TRUE,
+                                    collapsible = TRUE,
+                                    
+                                    plotOutput("tSNE_CS_batch2"),
+                                    selectInput("Metaselect2", "Meta select:",
+                                                c("SampleDate" = "SampleDate",
+                                                  "SubjectId" = "SubjectId",
+                                                  "ExpID" = "ExpID",
+                                                  "EXP.ID" = "EXP.ID",
+                                                  "SingleR_Labels" = "SingleR_Labels",
+                                                  "SingleR_Labels_Fine" = "SingleR_Labels_Fine",
+                                                  "Phase" = "Phase"), selected = "SampleDate"),
+                                    width = 5, background = "black"
+                                  ),
+                                  box(
+                                    title = "tSNE Meta Exploration", status = "primary", solidHeader = TRUE,
+                                    collapsible = TRUE,
+                                    
+                                    plotOutput("tSNE_CS_batch3"),
+                                    selectInput("Metaselect3", "Meta select:",
+                                                c("SampleDate" = "SampleDate",
+                                                  "SubjectId" = "SubjectId",
+                                                  "ExpID" = "ExpID",
+                                                  "EXP.ID" = "EXP.ID",
+                                                  "SingleR_Labels" = "SingleR_Labels",
+                                                  "SingleR_Labels_Fine" = "SingleR_Labels_Fine",
+                                                  "Phase" = "Phase"), selected = "SampleDate"),
+                                    width = 5, background = "black"
+                                  ),
+                                  box(title = "tSNE SDA projection", status = "primary", solidHeader = TRUE,
+                                      collapsible = TRUE,
+                                      actionButton("prevSDA_br2", "Prev comp"),
+                                      actionButton("nextSDA_br2", "Next comp"),
+                                    plotOutput("SDAtsne_br2"),
+                                    width=5, background = "black"
+                                  ),
+                                  box(title = "SDA score tabulation", status = "primary", solidHeader = TRUE,
+                                      collapsible = TRUE,
+                                      plotOutput("SDAtsne_br2Tab"),
+                                      width=10, background = "black"
                                   )
                                 )
                         ),
@@ -268,6 +310,10 @@ ui <- dashboardPage(skin="red",
 
 
 server <- function(input, output, session) {
+  
+  qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+  col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+  
   
   shinyFileChoose(input,'file', session=session,roots=c(wd='.'))
   
@@ -950,8 +996,8 @@ output$SDAScoresAcross <- renderPlot({
       theme_bw() + 
       theme(legend.position = "bottom") + 
       guides(colour = guide_legend(ncol = 4, override.aes = list(size=2, alpha=1))) +
-      # scale_colour_manual(values =(col_vector),
-      #                     guide = guide_legend(nrow=2)) +
+      scale_colour_manual(values =(col_vector),
+                          guide = guide_legend(nrow=2)) +
       # guides(color = guide_legend(ncol = 2, override.aes = list(size = 2))) +
       ggtitle(paste0("SDAV", ComponentN))
     
@@ -1002,7 +1048,7 @@ output$DGE_SDA_tSNE <- renderPlot({
 ## Batch Removed DGE --------------------------------------
 
 
-output$tSNE_CS_batch <- renderPlot({
+output$tSNE_CS_batch1 <- renderPlot({
   
   if(is.null(envv$tsne_CS_batch)){
     plot(x=0, y=0, main="tsne CS Batch not found")
@@ -1029,13 +1075,15 @@ output$tSNE_CS_batch <- renderPlot({
     } else {
       MetaDF <- envv$MetaDF
       
-      tsneDF$Meta <- MetaDF[rownames(tsneDF), input$Metaselect]
+      tsneDF$Meta <- MetaDF[rownames(tsneDF), input$Metaselect1]
       
       ggplot(tsneDF, aes(tSNE1_batch, tSNE2_batch, color=Meta)) +
         geom_point(size=0.1, alpha=.4)+ theme_bw() +
-        theme(legend.position = "bottom") +
-        ggtitle(paste0("tSNE - batch removed cell scores\n", input$Metaselect)) +
-        scale_color_manual(values = c(rep(colorRampPalette(brewer.pal(12,"Paired"))(30),2),"black","grey")) + 
+        theme(legend.position = "bottom", aspect.ratio=1) +
+        ggtitle(paste0("tSNE - batch removed cell scores\n", input$Metaselect1)) +
+        scale_color_manual(values = col_vector
+                           #c(rep(colorRampPalette(brewer.pal(12,"Paired"))(30),2),"black","grey")
+                           ) + 
         guides(colour = guide_legend(override.aes = list(size=2, alpha=1), ncol=5))
       
      
@@ -1044,8 +1092,7 @@ output$tSNE_CS_batch <- renderPlot({
   
 })
 
-
-output$tSNE_CS_batch_barTab <- renderPlot({
+output$tSNE_CS_batch2 <- renderPlot({
   
   if(is.null(envv$tsne_CS_batch)){
     plot(x=0, y=0, main="tsne CS Batch not found")
@@ -1060,18 +1107,27 @@ output$tSNE_CS_batch_barTab <- renderPlot({
     
     
     if(is.null(envv$MetaDF)){
-      plot(x=0, y=0, main="No MetaDF")
+      tsneDF$SumScore <- rowSums(abs(envv$SDAres$scores))
+      tsneDF$SumScore <- tsneDF$SumScore/mean(tsneDF$SumScore)
+      
+      ggplot(tsneDF, aes(tSNE1_batch, tSNE2_batch, color=(SumScore))) +
+        geom_point(size=0.5) + theme_bw() +
+        scale_color_distiller(palette = "Spectral")  +
+        ggtitle("tSNE SDA batch removed\n  Sum absolute-cell-scores normalized by its mean \n No Meta loaded")+
+        theme(legend.position = "bottom", aspect.ratio=1)
       
     } else {
       MetaDF <- envv$MetaDF
       
-      tsneDF$Meta <- MetaDF[rownames(tsneDF), input$Metaselect]
+      tsneDF$Meta <- MetaDF[rownames(tsneDF), input$Metaselect2]
       
       ggplot(tsneDF, aes(tSNE1_batch, tSNE2_batch, color=Meta)) +
         geom_point(size=0.1, alpha=.4)+ theme_bw() +
-        theme(legend.position = "bottom") +
-        ggtitle(paste0("tSNE - batch removed cell scores\n", input$Metaselect)) +
-        scale_color_manual(values = c(rep(colorRampPalette(brewer.pal(12,"Paired"))(30),2),"black","grey")) + 
+        theme(legend.position = "bottom", aspect.ratio=1) +
+        ggtitle(paste0("tSNE - batch removed cell scores\n", input$Metaselect2)) +
+        scale_color_manual(values = col_vector
+                           #c(rep(colorRampPalette(brewer.pal(12,"Paired"))(30),2),"black","grey")
+        ) + 
         guides(colour = guide_legend(override.aes = list(size=2, alpha=1), ncol=5))
       
       
@@ -1080,6 +1136,164 @@ output$tSNE_CS_batch_barTab <- renderPlot({
   
 })
 
+output$tSNE_CS_batch3 <- renderPlot({
+  
+  if(is.null(envv$tsne_CS_batch)){
+    plot(x=0, y=0, main="tsne CS Batch not found")
+    
+  } else {
+    
+    tsneDF <- as.data.frame(envv$tsne_CS_batch$Y)
+    rownames(tsneDF)  <- rownames(envv$SDAres$scores)
+    colnames(tsneDF) <- c("tSNE1_batch", "tSNE2_batch")
+    
+    
+    
+    
+    if(is.null(envv$MetaDF)){
+      tsneDF$SumScore <- rowSums(abs(envv$SDAres$scores))
+      tsneDF$SumScore <- tsneDF$SumScore/mean(tsneDF$SumScore)
+      
+      ggplot(tsneDF, aes(tSNE1_batch, tSNE2_batch, color=(SumScore))) +
+        geom_point(size=0.5) + theme_bw() +
+        scale_color_distiller(palette = "Spectral")  +
+        ggtitle("tSNE SDA batch removed\n  Sum absolute-cell-scores normalized by its mean \n No Meta loaded")+
+        theme(legend.position = "bottom", aspect.ratio=1)
+      
+    } else {
+      MetaDF <- envv$MetaDF
+      
+      tsneDF$Meta <- MetaDF[rownames(tsneDF), input$Metaselect3]
+      
+      ggplot(tsneDF, aes(tSNE1_batch, tSNE2_batch, color=Meta)) +
+        geom_point(size=0.1, alpha=.4)+ theme_bw() +
+        theme(legend.position = "bottom", aspect.ratio=1) +
+        ggtitle(paste0("tSNE - batch removed cell scores\n", input$Metaselect3)) +
+        scale_color_manual(values = col_vector
+                           #c(rep(colorRampPalette(brewer.pal(12,"Paired"))(30),2),"black","grey")
+        ) + 
+        guides(colour = guide_legend(override.aes = list(size=2, alpha=1), ncol=5))
+      
+      
+    }
+  }
+  
+})
+
+
+observeEvent(input$nextSDA_br2, {
+
+  
+  SDAorder <- 1:as.numeric(envv$SDAres$command_arguments$num_comps)
+  
+  if(which(SDAorder==envv$QC_compIter) < length(SDAorder)){
+    envv$QC_compIter = SDAorder[which(SDAorder==envv$QC_compIter) + 1]
+  }
+  
+  
+  
+  
+})
+
+observeEvent(input$prevSDA_br2, {
+  
+  # choice <-  1:as.numeric(envv$SDAres$command_arguments$num_comps) #paste0("SDA", 1:as.numeric(envv$SDAres$command_arguments$num_comps)) # envv$QC_components
+  # SDAorder <- setdiff(choice, envv$Remove_comps)
+  
+  SDAorder <- 1:as.numeric(envv$SDAres$command_arguments$num_comps)
+
+  
+  if(which(SDAorder==envv$QC_compIter) < length(SDAorder)){
+    envv$QC_compIter = SDAorder[which(SDAorder==envv$QC_compIter) - 1]
+  }
+  
+  
+})
+
+output$SDAtsne_br2 <- renderPlot({
+  
+  if(is.null(envv$SDAres)){
+    plot(x=0, y=0, main="Load an SDA")
+  } else {
+    
+    zN = envv$QC_compIter
+    
+    SDAres <- envv$SDAres
+    tempDFX <- as.data.frame(envv$tsne_CS_batch$Y)
+    rownames(tempDFX)  <- rownames(envv$SDAres$scores)
+    colnames(tempDFX) <- c("tSNE1_batch", "tSNE2_batch")
+    
+    if(zN %in% envv$Remove_comps) RemoveTag = "removed" else RemoveTag = "kept"
+    
+
+    tempDFX$SDAComp <- SDAres$scores[,paste0("SDA", zN, sep="")]
+    
+    ggplot(tempDFX, aes(tSNE1_batch, tSNE2_batch,  color=cut(asinh(SDAComp^3), breaks = c(-Inf, -1, -.5, 0, .5, 1, Inf)))) +
+      geom_point(size=0.1) + theme_bw() +
+      scale_color_manual("CS", values = rev(c("red", "orange", "yellow", "lightblue", "dodgerblue", "blue")) ) + 
+      guides(colour = guide_legend(override.aes = list(size=2, alpha=1))) +
+      theme(legend.position = "bottom", aspect.ratio=1) + 
+      simplify2 + coord_cartesian(xlim = NULL, ylim = NULL, expand = FALSE) +
+      ggtitle(paste0("SDA", zN, " :: ", RemoveTag))+
+      ylab("asinh(SDAscore^3)")
+    
+    
+      
+
+    
+  }
+})
+
+
+
+output$SDAtsne_br2Tab <- renderPlot({
+  
+  if(is.null(envv$SDAres)){
+    plot(x=0, y=0, main="Load an SDA")
+  } else {
+    
+    zN = envv$QC_compIter
+    
+    SDAres <- envv$SDAres
+    tempDFX <- as.data.frame(envv$tsne_CS_batch$Y)
+    rownames(tempDFX)  <- rownames(envv$SDAres$scores)
+    colnames(tempDFX) <- c("tSNE1_batch", "tSNE2_batch")
+    
+    if(zN %in% envv$Remove_comps) RemoveTag = "removed" else RemoveTag = "kept"
+    
+    
+    tempDFX$SDAComp <- SDAres$scores[,paste0("SDA", zN, sep="")]
+    
+    
+    
+    if(!is.null(envv$MetaDF)){
+      MetaDF <- envv$MetaDF
+      tempDFX$Meta <- MetaDF[rownames(tempDFX), input$Metaselect3]
+      tempDFX <- table(cut(tempDFX$SDAComp, 
+                           c(-Inf, -1, -.5, 0, .5, 1, Inf)), tempDFX$Meta)
+      
+      ppg2 <- ggplot(reshape2::melt(tempDFX)) +
+        geom_bar(aes(x=Var2, y=value, fill=factor(Var1)), stat="identity", width = 0.7, position="fill") +
+        theme_bw()  + scale_fill_manual(values=rev(c("red", "orange", "yellow", "lightblue", "dodgerblue", "blue"))) +
+        theme(legend.position="bottom",
+              legend.direction="horizontal",
+              legend.title = element_blank(),
+              axis.text.x = element_text(angle = 90)) +
+        scale_y_continuous(breaks = c(0, 0.25, 0.5, 0.75, 1),
+                           labels = scales::percent(c(0, 0.25, 0.5, 0.75, 1))) +
+        ggtitle(paste0("Relative Contribution\n","SDA", zN, " :: ", RemoveTag)) + ylab("Relative % cells")
+      
+      print(ppg2)
+      
+      
+    } else {
+      plot(x=0, y=0, main="No Meta")
+    }
+    
+    
+    
+  }
+})
 
   
 }
