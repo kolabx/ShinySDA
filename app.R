@@ -27,7 +27,7 @@ ui <- dashboardPage(skin="red",
                                  badgeLabel = "soon", badgeColor = "red"),
                         menuItem("Batch removal", tabName = "BatchRemove", icon = icon("allergies"),
                                  badgeLabel = "soon", badgeColor = "red"),
-                        menuItem("Tab 4. (dev)", tabName = "FourthDash", icon = icon("arrows-alt"),
+                        menuItem("DGE Batch-Removed", tabName = "DGEsda", icon = icon("arrows-alt"),
                                  badgeLabel = "soon", badgeColor = "red"),
                         menuItem("Enrichment Analysis", tabName = "Enrichment", icon = icon("dashboard"),
                                  badgeLabel = "underconst.", badgeColor = "yellow"),
@@ -184,7 +184,7 @@ ui <- dashboardPage(skin="red",
                                 )
                         ),
                         
-                        # ThirdDash content
+                        # Batch removal content
                         tabItem(tabName = "BatchRemove",
                                 h2("Batch Removal"),
                                 fluidRow(
@@ -228,15 +228,32 @@ ui <- dashboardPage(skin="red",
                                 box(
                                   title = "tSNE Batch removed", status = "primary", solidHeader = TRUE,
                                   collapsible = TRUE,
-                                  plotOutput("tSNE_CS_batch"), 
+                                  plotOutput("DGE_SDA_tSNE"), 
                                   width = 10, background = "black"
                                 )
                                 )
                         ),
                         
-                        # FourthDash tab content
-                        tabItem(tabName = "FourthDash",
-                                h2("FourthDash tab content")
+                        # DGE-SDA-BatchRemove tab content
+                        tabItem(tabName = "DGEsda",
+                                h2("DGE_SDA Batched Removed DGE"),
+                                fluidRow(
+                                  box(
+                                    title = "tSNe", status = "primary", solidHeader = TRUE,
+                                    collapsible = TRUE,
+                                   # plotOutput("DGE_SDA_tSNE"),
+                                    plotOutput("tSNE_CS_batch"), 
+                                    selectInput("Metaselect", "Meta select:",
+                                                c("SampleDate" = "SampleDate",
+                                                  "SubjectId" = "SubjectId",
+                                                  "ExpID" = "ExpID",
+                                                  "EXP.ID" = "EXP.ID",
+                                                  "SingleR_Labels" = "SingleR_Labels",
+                                                  "SingleR_Labels_Fine" = "SingleR_Labels_Fine",
+                                                  "Phase" = "Phase"), selected = "SampleDate"),
+                                    width = 10, background = "black"
+                                  )
+                                )
                         ),
                         
                         # Enrichment tab content
@@ -266,17 +283,6 @@ server <- function(input, output, session) {
                                                     recursive = FALSE)))
   
   
-  # observeEvent(input$folder.name, {
-  #   
-  #   
-  #   # print(head(input$folder.name))
-  #   # print(head(input$SDAroot))
-  #   
-  #   envv$path2SDA_dyn <- paste0(input$SDAroot, "/", input$folder.name)
-  #   
-  #   # print(head( envv$path2SDA_dyn))
-  #   
-  # })
 
 
 output$InfoBox <- renderValueBox({
@@ -739,7 +745,7 @@ output$slackslabprior <- renderPlot({
 
 })
 
-## Batch removal tab
+## Batch removal tab--------------------------------------
 
 observeEvent(input$nextSDA_br, {
   SDAorder <- 1:as.numeric(envv$SDAres$command_arguments$num_comps)
@@ -777,12 +783,12 @@ output$SDAtsne_br1 <- renderPlot({
     
     tempDFX$SDAComp <- SDAres$scores[,paste0("SDA", zN, sep="")]
     
-    ggplot(tempDFX, aes(tSNE1_qc, tSNE2_qc,  color=cut(asinh(SDAComp), breaks = c(-Inf, -1, -.5, 0, .5, 1, Inf)))) +
+    ggplot(tempDFX, aes(tSNE1_qc, tSNE2_qc,  color=cut(asinh(SDAComp^3), breaks = c(-Inf, -1, -.5, 0, .5, 1, Inf)))) +
       geom_point(size=0.1) + theme_bw() +
       scale_color_manual("CS", values = rev(c("red", "orange", "yellow", "lightblue", "dodgerblue", "blue")) ) + 
       guides(colour = guide_legend(override.aes = list(size=2, alpha=1))) +
       theme(legend.position = "bottom", aspect.ratio=1) + 
-      simplify2 + coord_cartesian(xlim = NULL, ylim = NULL, expand = FALSE) + ggtitle(paste0("SDA", zN, sep=""))
+      simplify2 + coord_cartesian(xlim = NULL, ylim = NULL, expand = FALSE) + ggtitle(paste0("SDA", zN, sep=""))+ylab("asinh(SDAscore^3)")
     
   }
 })
@@ -841,7 +847,6 @@ observeEvent(input$run_tSNE_CS_batch, {
   
 })
 
-
 observeEvent(input$save_batch_selection, {
   
   
@@ -896,8 +901,6 @@ observeEvent(input$reset_batch_selection, {
 
 })
 
-
-
 output$CompBatchCheckBoxSelect <- renderUI({
   
   choice <-  1:as.numeric(envv$SDAres$command_arguments$num_comps) #paste0("SDA", 1:as.numeric(envv$SDAres$command_arguments$num_comps)) # envv$QC_components
@@ -915,7 +918,6 @@ output$CompBatchCheckBoxSelect <- renderUI({
                               choices=choice, selected = selected))
 
 })
-
 
 output$SDAScoresAcross <- renderPlot({
   
@@ -959,11 +961,7 @@ output$SDAScoresAcross <- renderPlot({
   
 })
 
-
-
-
-
-output$tSNE_CS_batch <- renderPlot({
+output$DGE_SDA_tSNE <- renderPlot({
   
   if(is.null(envv$tsne_CS_batch)){
     plot(x=0, y=0, main="tsne CS Batch not found")
@@ -999,6 +997,87 @@ output$tSNE_CS_batch <- renderPlot({
     }
   }
  
+})
+
+## Batch Removed DGE --------------------------------------
+
+
+output$tSNE_CS_batch <- renderPlot({
+  
+  if(is.null(envv$tsne_CS_batch)){
+    plot(x=0, y=0, main="tsne CS Batch not found")
+    
+  } else {
+    
+    tsneDF <- as.data.frame(envv$tsne_CS_batch$Y)
+    rownames(tsneDF)  <- rownames(envv$SDAres$scores)
+    colnames(tsneDF) <- c("tSNE1_batch", "tSNE2_batch")
+    
+    
+    
+    
+    if(is.null(envv$MetaDF)){
+      tsneDF$SumScore <- rowSums(abs(envv$SDAres$scores))
+      tsneDF$SumScore <- tsneDF$SumScore/mean(tsneDF$SumScore)
+      
+      ggplot(tsneDF, aes(tSNE1_batch, tSNE2_batch, color=(SumScore))) +
+        geom_point(size=0.5) + theme_bw() +
+        scale_color_distiller(palette = "Spectral")  +
+        ggtitle("tSNE SDA batch removed\n  Sum absolute-cell-scores normalized by its mean \n No Meta loaded")+
+        theme(legend.position = "bottom", aspect.ratio=1)
+      
+    } else {
+      MetaDF <- envv$MetaDF
+      
+      tsneDF$Meta <- MetaDF[rownames(tsneDF), input$Metaselect]
+      
+      ggplot(tsneDF, aes(tSNE1_batch, tSNE2_batch, color=Meta)) +
+        geom_point(size=0.1, alpha=.4)+ theme_bw() +
+        theme(legend.position = "bottom") +
+        ggtitle(paste0("tSNE - batch removed cell scores\n", input$Metaselect)) +
+        scale_color_manual(values = c(rep(colorRampPalette(brewer.pal(12,"Paired"))(30),2),"black","grey")) + 
+        guides(colour = guide_legend(override.aes = list(size=2, alpha=1), ncol=5))
+      
+     
+    }
+  }
+  
+})
+
+
+output$tSNE_CS_batch_barTab <- renderPlot({
+  
+  if(is.null(envv$tsne_CS_batch)){
+    plot(x=0, y=0, main="tsne CS Batch not found")
+    
+  } else {
+    
+    tsneDF <- as.data.frame(envv$tsne_CS_batch$Y)
+    rownames(tsneDF)  <- rownames(envv$SDAres$scores)
+    colnames(tsneDF) <- c("tSNE1_batch", "tSNE2_batch")
+    
+    
+    
+    
+    if(is.null(envv$MetaDF)){
+      plot(x=0, y=0, main="No MetaDF")
+      
+    } else {
+      MetaDF <- envv$MetaDF
+      
+      tsneDF$Meta <- MetaDF[rownames(tsneDF), input$Metaselect]
+      
+      ggplot(tsneDF, aes(tSNE1_batch, tSNE2_batch, color=Meta)) +
+        geom_point(size=0.1, alpha=.4)+ theme_bw() +
+        theme(legend.position = "bottom") +
+        ggtitle(paste0("tSNE - batch removed cell scores\n", input$Metaselect)) +
+        scale_color_manual(values = c(rep(colorRampPalette(brewer.pal(12,"Paired"))(30),2),"black","grey")) + 
+        guides(colour = guide_legend(override.aes = list(size=2, alpha=1), ncol=5))
+      
+      
+    }
+  }
+  
 })
 
 
