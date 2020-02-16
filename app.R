@@ -69,6 +69,7 @@ ui <- dashboardPage(skin="red",
                                     uiOutput("select.folder"),
                                       actionButton("loadSDA", "Load SDA"),
                                       actionButton("getGeneAnn", "Get Gene Annotations"),
+                                      actionButton("getSDAGo", "Get SDA GO Enrichments"),
                                       actionButton("runtSNE", "Run tSNE (cs-all)"),
                                       actionButton("runtSNEQCfilt", "Run tSNE (cs-qc)"),
                                      # textInput("loadSDAmsg", "File Status", "not loaded"),
@@ -222,6 +223,11 @@ ui <- dashboardPage(skin="red",
                                                 "Med-2000" = "2000",
                                                 "Med-5000" = "5000",
                                                 "Robust-10000" = "10000"), selected = "500"),
+                                  selectInput("tSNEpp", "tSNE prplx:",
+                                              c("10" = "10",
+                                                "50" = "50",
+                                                "100" = "100",
+                                                "200" = "200"), selected = "50"),
                                   actionButton("run_tSNE_CS_batch", "Run tSNE (batch-removed)"),
                                   width = 10, background = "black",
                                 ),
@@ -295,6 +301,25 @@ ui <- dashboardPage(skin="red",
                                       plotOutput("SDAtsne_br2Tab"),
                                       width=10, background = "black"
                                   )
+                                ),
+                                box(
+                                  title = "Pos. Loadings GO", status = "primary", solidHeader = TRUE,
+                                  collapsible = TRUE,
+                                  plotOutput("GOpos"), #plotlyOutput
+                                  width = 5, background = "black"
+                                ),
+                                box(
+                                  title = "Neg. Loadings GO", status = "primary", solidHeader = TRUE,
+                                  collapsible = TRUE,
+                                  plotOutput("GOneg"),
+                                  width = 5, background = "black"
+                                ),
+                                
+                                box(title = "Pos. Top Genes", status = "info", solidHeader = TRUE, width = 4,
+                                    tableOutput("packageTablePos")
+                                ),
+                                box(title = "Neg. Top Genes", status = "info", solidHeader = TRUE, width = 4,
+                                    tableOutput("packageTableNeg")
                                 )
                         ),
                         
@@ -450,6 +475,70 @@ observeEvent(input$getGeneAnn, {
   
 })
 
+## get GO
+observeEvent(input$getSDAGo, {
+  
+  if(is.null(envv$SDAres)){ 
+    envv$InfoBox_sub = "Load SDA"
+  } else {
+    
+    head.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][2]
+    base.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][1]
+    NComps <- as.numeric(envv$SDAres$command_arguments$num_comps)
+    
+    SDAres <- envv$SDAres
+    
+    envv$InfoBox_sub <- paste0(NComps, " comps, ~30 sec per comp")
+    
+    library(AnnotationHub) # source("https://bioconductor.org/biocLite.R"); biocLite("AnnotationHub")
+    library(clusterProfiler) # source("https://bioconductor.org/biocLite.R"); biocLite("clusterProfiler")
+    
+    hub <- AnnotationHub()
+    
+    
+    query(hub, "org.Mmu.eg.db")
+    HuMAN.names <- query(hub, "org.Mmu.eg.db")#org.Hs.eg.db  org.MM.eg
+    
+
+   HuMAN <- hub[["AH75746"]] #AH75742 #query(hub, "org.MM.eg"), AH52234, AH57184.... new human AH73986? or AH70572? old? AH66156 query(hub, "org.Hs.eg.db")
+      
+   
+    
+    envv$GOAnn <- list(HuMAN = HuMAN, HuMAN.names = HuMAN.names)
+
+    
+    if(!file.exists(paste0(base.path, head.path, "_SDA_GO_Comps.rds"))){
+      
+      GO_data <- list()
+      
+      for (i in 1:NComps){
+        print(i)
+        envv$InfoBox_sub <- paste0("Getting GO: %", round(i/NComps,3)*100)
+
+        print("...negatives")
+        GO_data[[paste0("V",i,"N")]] <- GO_enrichment(results =SDAres, i, side="N", geneNumber = 100, threshold=0.05, OrgDb =HuMAN)
+        print("...positives")
+        GO_data[[paste0("V",i,"P")]] <- GO_enrichment(results =SDAres, i, side="P", geneNumber = 100, threshold=0.05, OrgDb =HuMAN)
+      }
+      
+      saveRDS(GO_data, paste0(base.path, head.path, "_SDA_GO_Comps.rds"))
+      
+    } else{
+      print("Loaded previously saved GO annotations.")
+      
+      GO_data <- readRDS(paste0(base.path, head.path, "_SDA_GO_Comps.rds"))
+    }
+    
+    envv$InfoBox_sub <- "GO data loaded"
+    envv$GO_data  <- GO_data
+    
+  }
+  
+  
+  
+  
+})
+
 
 ## run raw tSNE
 observeEvent(input$runtSNE, {
@@ -464,20 +553,20 @@ observeEvent(input$runtSNE, {
     SDAres <- envv$SDAres
    
     
-    if(!file.exists(paste0(base.path, head.path, "_tSNE_CellScore_AllComps.rds"))){
+    if(!file.exists(paste0(base.path, head.path, "_tSNE_CellScore_AllComps_pp50.rds"))){
       
       envv$InfoBox_sub = "Starting tSNE with cell scores - all comps.. wait"
-      tsne_CS_all <- Rtsne::Rtsne(SDAres$scores[,], verbose=TRUE, pca=FALSE, perplexity = 40, 
+      tsne_CS_all <- Rtsne::Rtsne(SDAres$scores[,], verbose=TRUE, pca=FALSE, perplexity = 50, 
                                   max_iter=1000, num_threads = 8)
     
       
       envv$InfoBox_sub = "Saving tSNE with cell scores - all comps.. wait"
-      saveRDS(tsne_CS_all, file=paste0(base.path, head.path, "_tSNE_CellScore_AllComps.rds"))
+      saveRDS(tsne_CS_all, file=paste0(base.path, head.path, "_tSNE_CellScore_AllComps_pp50.rds"))
       
       
       
     } else {
-      tsne_CS_all <- readRDS(paste0(base.path, head.path, "_tSNE_CellScore_AllComps.rds"))
+      tsne_CS_all <- readRDS(paste0(base.path, head.path, "_tSNE_CellScore_AllComps_pp50.rds"))
     }
     envv$InfoBox_sub = "raw tSNE with cell scores complete"
     envv$tsne_CS_all <- tsne_CS_all
@@ -501,8 +590,9 @@ observeEvent(input$runtSNEQCfilt, {
     
     
     tSNE_n.iter = 1000
+    tSNE_pp = 50
     
-    if(!file.exists(paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_", suffix, ".rds"))){
+    if(!file.exists(paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))){
       
       
       
@@ -510,16 +600,16 @@ observeEvent(input$runtSNEQCfilt, {
       
       
       envv$InfoBox_sub = "Starting tSNE with cell scores - qc comps.. wait"
-      tsne_CS_qc <- Rtsne::Rtsne(SDAres$scores[,envv$QC_components], verbose=TRUE, pca=FALSE, perplexity = 40, 
+      tsne_CS_qc <- Rtsne::Rtsne(SDAres$scores[,envv$QC_components], verbose=TRUE, pca=FALSE, perplexity = tSNE_pp, 
                                  max_iter=tSNE_n.iter, num_threads = 8)
       
       envv$InfoBox_sub = "Saving tSNE with cell scores - qc comps.. wait"
-      saveRDS(tsne_CS_qc, file=paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_", suffix, ".rds"))
+      saveRDS(tsne_CS_qc, file=paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))
       
       
       
     } else {
-      tsne_CS_qc <- readRDS(paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_", suffix, ".rds"))
+      tsne_CS_qc <- readRDS(paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))
     }
     envv$InfoBox_sub = "qc tSNE with cell scores complete"
     envv$tsne_CS_qc <- tsne_CS_qc
@@ -534,7 +624,6 @@ observeEvent(input$runtSNEQCfilt, {
 
 ## Main tab--------------------------------------
 
-#### QC threshold plot
 
 output$SDAqcMaxScorefilt <- renderPlot({
   if(is.null(envv$SDAres)){
@@ -622,6 +711,8 @@ output$tSNE_CS_qc <- renderPlot({
     
   }
 })
+
+
   
 ## QC tabs--------------------------------------
 
@@ -856,6 +947,7 @@ observeEvent(input$run_tSNE_CS_batch, {
     SDAres <- envv$SDAres
     suffix <- paste(envv$Remove_comps, collapse = "_")
     tSNE_n.iter <- as.numeric(input$tSNEiter)
+    tSNE_pp <- as.numeric(input$tSNEpp)
     
     choice <-  1:as.numeric(envv$SDAres$command_arguments$num_comps) #paste0("SDA", 1:as.numeric(envv$SDAres$command_arguments$num_comps)) # envv$QC_components
     selected <- setdiff(choice, envv$Remove_comps)
@@ -863,19 +955,20 @@ observeEvent(input$run_tSNE_CS_batch, {
     head.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][2]
     base.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][1]
     
-    if(!file.exists(paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_", suffix, ".rds"))){
+    if(!file.exists(paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))){
       
       envv$InfoBox_sub = "Starting tSNE with cell scores - batch-removal.. wait"
-      tsne_CS_batch <- Rtsne::Rtsne(SDAres$scores[,selected], verbose=TRUE, pca=FALSE, perplexity = 40, 
+      tsne_CS_batch <- Rtsne::Rtsne(SDAres$scores[,selected], verbose=TRUE, pca=FALSE, 
+                                    perplexity = tSNE_pp, 
                                  max_iter=tSNE_n.iter, num_threads = 8)
       
       envv$InfoBox_sub = "Saving tSNE with cell scores - batch-removal.. wait"
-      saveRDS(tsne_CS_batch, file=paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_", suffix, ".rds"))
+      saveRDS(tsne_CS_batch, file=paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))
       
       
       
     } else {
-      tsne_CS_batch <- readRDS(paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_", suffix, ".rds"))
+      tsne_CS_batch <- readRDS(paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))
     }
     envv$InfoBox_sub = "batch-removal tSNE with cell scores complete"
     envv$tsne_CS_batch <- tsne_CS_batch
@@ -1244,8 +1337,6 @@ output$SDAtsne_br2 <- renderPlot({
   }
 })
 
-
-
 output$SDAtsne_br2Tab <- renderPlot({
   
   if(is.null(envv$SDAres)){
@@ -1295,6 +1386,51 @@ output$SDAtsne_br2Tab <- renderPlot({
   }
 })
 
+output$GOpos <- renderPlot({
+  
+  
+  
+  if(is.null(envv$GO_data)){
+    plot(x=0, y=0, main="Load an SDA the GO data")
+    
+  } else {
+    GO_data  <- envv$GO_data
+    zN = envv$QC_compIter
+    go_volcano_plot(x=GO_data, 
+                    component = paste("V", zN, "P", sep=""))+ 
+      theme_bw()+ theme(aspect.ratio = 1)
+    
+  }
+  
+})
+
+output$GOneg <- renderPlot({
+  
+  if(is.null(envv$GO_data)){
+    plot(x=0, y=0, main="Load an SDA the GO data")
+    
+  } else {
+    GO_data  <- envv$GO_data
+    zN = envv$QC_compIter
+    go_volcano_plot(x=GO_data, component = paste("V", zN, "N", sep=""))+ 
+      theme_bw()+ theme(aspect.ratio = 1)
+    
+  }
+  
+})
+
+output$packageTablePos <- renderTable({
+
+  print_gene_list(results=envv$SDAres, as.numeric(envv$QC_compIter), PosOnly = T) %>%
+    as.data.frame() %>%
+    head(as.numeric(50))
+}, digits = 1)
+
+output$packageTableNeg <- renderTable({
+  print_gene_list(results=envv$SDAres, as.numeric(envv$QC_compIter), NegOnly = T) %>%
+    as.data.frame() %>%
+    head(as.numeric(50))
+}, digits = 1)
   
 }
 

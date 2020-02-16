@@ -124,3 +124,66 @@ get.location <- function(gene.symbols, data_set, gene_name){
   mapTab[is.na(chromosome_name)]$start_position <- NA
   return(mapTab)
 }
+
+
+GO_enrichment <- function(results = NULL, component, geneNumber = 100, threshold=0.01, side="N", OrgDb = NULL){
+  # results = SDAres; component = 1; geneNumber = 100; threshold=0.01; side="N"; OrgDb = HuMAN
+  
+  if(side=="N"){
+    top_genes <- data.table(as.matrix(results$loadings[[1]][component, ]), keep.rownames = TRUE)[order(V1)][1:geneNumber]$rn
+  }else{
+    top_genes <- data.table(as.matrix(results$loadings[[1]][component, ]), keep.rownames = TRUE)[order(-V1)][1:geneNumber]$rn
+  }
+  
+  gene_universe <- data.table(as.matrix(results$loadings[[1]][component,]), keep.rownames = TRUE)$rn
+  
+  ego <- enrichGO(gene = top_genes,
+                  universe = gene_universe,
+                  OrgDb = OrgDb,
+                  keyType = 'SYMBOL',
+                  ont = "BP",
+                  pAdjustMethod = "BH",
+                  pvalueCutoff = 1,
+                  qvalueCutoff = 1)
+  
+  ego@result$Enrichment <- frac_to_numeric(ego@result$GeneRatio)/frac_to_numeric(ego@result$BgRatio)
+  
+  ego@result$GeneOdds <- unlist(lapply(strsplit(ego@result$GeneRatio, "/", fixed = TRUE), function(x){ x<-as.numeric(x) ;x[1] / (x[2]-x[1])}))
+  ego@result$BgOdds <- unlist(lapply(strsplit(ego@result$BgRatio, "/", fixed = TRUE), function(x){ x<-as.numeric(x) ;x[1] / (x[2]-x[1])}))
+  
+  return(ego@result)
+  
+}
+
+frac_to_numeric <- function(x) sapply(x, function(x) eval(parse(text=x)))
+
+
+go_volcano_plot <- function(x=GO_data, component="V5N", extraTitle=""){
+  if(extraTitle=="") extraTitle = paste("Component : ", component, sep="")
+  
+  #print(
+  ggplot(data.table(x[[component]]), aes(GeneOdds/BgOdds, -log(pvalue), size=Count)) +
+    geom_point(aes(colour=p.adjust<0.05)) +
+    scale_size_area() +
+    geom_label_repel(data = data.table(x[[component]])[order(p.adjust)][1:30][p.adjust<0.7], aes(label = Description, size=0.25), size = 3, force=2) + 
+    ggtitle(paste("",extraTitle, sep="\n") ) +
+    xlab("Odds Ratio") +
+    scale_x_log10(limits=c(1,NA), breaks=c(1,2,3,4,5,6,7,8))
+  #)
+}
+
+print_gene_list <- function(results = results, i, PrintRes = F, PosOnly = F, NegOnly = F, AbsLoad = T, TopN = 150) {
+  if(AbsLoad)  tmp <- data.table(as.matrix(results$loadings[[1]][i,]), keep.rownames = TRUE)[order(-abs(V1))][1:TopN]
+  
+  if(PosOnly)  tmp <- data.table(as.matrix(results$loadings[[1]][i,]), keep.rownames = TRUE)[order(-(V1))][1:TopN]
+  
+  if(NegOnly)  tmp <- data.table(as.matrix(results$loadings[[1]][i,]), keep.rownames = TRUE)[order((V1))][1:TopN]
+  
+  
+  setnames(tmp, c("Gene.Name","Loading"))
+  setkey(tmp, Gene.Name)
+  
+  
+  # Display Result
+  if(PrintRes) print(tmp[order(-abs(Loading))]) else return(tmp[order(-abs(Loading))])
+}
