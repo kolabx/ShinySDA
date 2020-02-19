@@ -173,6 +173,8 @@ go_volcano_plot <- function(x=GO_data, component="V5N", extraTitle=""){
 }
 
 print_gene_list <- function(results = results, i, PrintRes = F, PosOnly = F, NegOnly = F, AbsLoad = T, TopN = 150) {
+  # results = SDAres; i=1; PosOnly = T; NegOnly = F; TopN = TopN
+  
   if(AbsLoad)  tmp <- data.table(as.matrix(results$loadings[[1]][i,]), keep.rownames = TRUE)[order(-abs(V1))][1:TopN]
   
   if(PosOnly)  tmp <- data.table(as.matrix(results$loadings[[1]][i,]), keep.rownames = TRUE)[order(-(V1))][1:TopN]
@@ -186,4 +188,108 @@ print_gene_list <- function(results = results, i, PrintRes = F, PosOnly = F, Neg
   
   # Display Result
   if(PrintRes) print(tmp[order(-abs(Loading))]) else return(tmp[order(-abs(Loading))])
+}
+
+
+
+plotEnrich <- function(GeneSetsDF, GeneVec, plotTitle="", xLab="", N = NULL, k = NULL, ReturnPval=T, BiPlot = F){
+  
+  
+  GeneVec_overlap <- apply(GeneSetsDF, 2, function(x){
+    length(which(x %in% GeneVec))
+  })
+  table(GeneVec_overlap)
+  
+  
+  
+  m = length(GeneVec)
+  n = N - m
+  
+  ## Random expectation
+  marked.proportion <- m / N; marked.proportion
+  exp.x <- k * marked.proportion; exp.x
+  
+  x = GeneVec_overlap
+  
+  ## Fold enrichment, as computed by David
+  fold.enrichment <-  (x / k ) / (m / N)
+  
+  # barplot(fold.enrichment, las=2)
+  
+  
+  
+  # ggplot(data=data.frame(x=names(fold.enrichment),
+  #            y=fold.enrichment), aes(x=x, y=y)) + theme_bw()  +
+  #   geom_bar(stat="identity") +
+  #   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + ggtitle("Fold-enrichment \n Sertoli cell-only syndrome vs control DE genes")
+  
+  p.value <-  phyper(q=x-1, m=m, n=n, k=k, lower.tail=FALSE)
+  # p.value <-  p.adjust(p.value, "BH")
+  p.value <-  p.adjust(p.value, "fdr")
+  
+  fold.enrichment <- fold.enrichment[gtools::mixedsort(names(fold.enrichment))]
+  
+  p.value <-  p.value[names(fold.enrichment)]
+  
+  tDF <- data.frame(x=(fold.enrichment),
+                    y=p.value)
+  rownames(tDF) <- names(fold.enrichment)
+  # tDF[tDF$y <0.01,]
+  
+  # print(head(p.value))
+  # print(head(names(fold.enrichment)))
+  # print(names(p.value)[p.value<0.01])
+  # print(paste(names(p.value)[p.value<0.01]))
+  # print(rownames(tDF[tDF$y <0.01,]))
+  
+  tempSigComps <- rownames(tDF[tDF$y <0.01,])
+  
+  tempLen <- length(tempSigComps)
+  
+  tempKeepLen <- tempLen - length(grep("Removed", tempSigComps))
+  
+  if(tempLen> 16){
+    plotTitle <- paste0(plotTitle, "\nSig Comps ", tempKeepLen, "/", tempLen, ":", 
+                        paste(rownames(tDF[tDF$y <0.01,])[1:7], collapse = ", "), "\n", 
+                        paste(rownames(tDF[tDF$y <0.01,])[8:15], collapse = ", "), "\n", 
+                        paste(rownames(tDF[tDF$y <0.01,])[16:tempLen], collapse = ", "))
+    
+  } else  if(tempLen> 8){
+    plotTitle <- paste0(plotTitle, "\nSig Comps: ", tempKeepLen, "/", tempLen, ":",
+                        paste(rownames(tDF[tDF$y <0.01,])[1:7], collapse = ", "), "\n", 
+                        paste(rownames(tDF[tDF$y <0.01,])[8:tempLen], collapse = ", "))
+    
+  } else {
+    plotTitle <- paste0(plotTitle, "\nSig Comps: ", tempKeepLen, "/", tempLen, ":",
+                        paste(rownames(tDF[tDF$y <0.01,]), collapse = ", "))
+    
+  }
+  
+  if(BiPlot) print(ggplot(data=tDF, aes(x=x, y=y, label = ifelse(y < 0.01, "*", ""))) + theme_bw()  +
+                     geom_point() + geom_line() +
+                     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+                     geom_text(vjust = 0) +
+                     ggtitle(plotTitle) +
+                     xlab("Fold-enrichment") +
+                     ylab("1 - P-value = 1 - P(X>=x) = P(X<x)"))
+  
+  tDF <- data.frame(x=factor(names(fold.enrichment), levels = names(fold.enrichment)),
+                    y=fold.enrichment,
+                    p=p.value)
+  
+  rownames(tDF) <- names(fold.enrichment)
+  
+  
+  
+  print(ggplot(data=tDF, aes(x=x, y=y, label = ifelse(p < 0.01, "*", ""))) + theme_bw()  +
+          geom_bar(stat="identity") +
+          theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+          geom_text(vjust = 0) + 
+          ggtitle(plotTitle) + 
+          xlab(xLab) + 
+          ylab("Fold-enrichment"))
+  
+  
+  if(ReturnPval) return(1-p.value)
+  
 }

@@ -18,21 +18,17 @@ source("fxs.R")
 
 ui <- dashboardPage(skin="red",
                     dashboardHeader(title = "ShinySDA"),
-                    
+                    #https://rstudio.github.io/shinydashboard/appearance.html#icons
                     dashboardSidebar(
                       sidebarMenu(
-                        menuItem("Main Tab", tabName = "MainDash", icon = icon("dashboard"),
-                                 badgeLabel = "underconst.", badgeColor = "yellow"),
-                        menuItem("QC plots", tabName = "QCplots", icon = icon("affiliatetheme"),
-                                 badgeLabel = "soon", badgeColor = "red"),
-                        menuItem("Batch removal", tabName = "BatchRemove", icon = icon("allergies"),
-                                 badgeLabel = "soon", badgeColor = "red"),
-                        menuItem("DGE Batch-Removed", tabName = "DGEsda", icon = icon("arrows-alt"),
-                                 badgeLabel = "soon", badgeColor = "red"),
-                        menuItem("Enrichment Analysis", tabName = "Enrichment", icon = icon("dashboard"),
-                                 badgeLabel = "underconst.", badgeColor = "yellow"),
-                        menuItem("Source code", icon = icon("file-code-o"), 
-                                 href = "https://")
+                        menuItem("Main Tab", tabName = "MainDash", icon = icon("dashboard")),
+                        menuItem("QC plots", tabName = "QCplots", icon = icon("wrench")),
+                        menuItem("Batch removal", tabName = "BatchRemove", icon = icon("toolbox")),
+                        menuItem("DGE Batch-Removed", tabName = "DGEsda", icon = icon("autoprefixer")),
+                        menuItem("Gene Explorer", tabName = "GeneExplorer", icon = icon("dna")),
+                        menuItem("Save Out", tabName = "SaveOut", icon = icon("save"))
+                        # menuItem("Source code", icon = icon("file-code-o"), 
+                        #          href = "https://")
                       )
                     ),
                     
@@ -208,29 +204,30 @@ ui <- dashboardPage(skin="red",
                                     actionButton("reset_batch_selection", "Reset last Selection"),
                                     width=5, background = "black"),
                                   box(
+                                    title = "Run tSNE Batch Removed", status = "primary", solidHeader = TRUE,
+                                    collapsible = TRUE, 
+                                    
+                                    selectInput("tSNEiter", "tSNE n-iter:",
+                                                c("Fast-500" = "500",
+                                                  "Med-2000" = "2000",
+                                                  "Med-5000" = "5000",
+                                                  "Robust-10000" = "10000"), selected = "500"),
+                                    selectInput("tSNEpp", "tSNE prplx:",
+                                                c("10" = "10",
+                                                  "50" = "50",
+                                                  "100" = "100",
+                                                  "200" = "200"), selected = "50"),
+                                    actionButton("run_tSNE_CS_batch", "Run tSNE (batch-removed)"),
+                                    width = 5, background = "black",
+                                  ),
+                                  box(
                                     title = "Scores order by Meta", status = "primary", solidHeader = TRUE,
                                     collapsible = TRUE,
                                     plotOutput("SDAScoresAcross"), 
                                     width = 10, background = "black"
                                   ),
                                   
-                                box(
-                                  title = "Run tSNE Batch Removed", status = "primary", solidHeader = TRUE,
-                                  collapsible = TRUE, 
-        
-                                  selectInput("tSNEiter", "tSNE n-iter:",
-                                              c("Fast-500" = "500",
-                                                "Med-2000" = "2000",
-                                                "Med-5000" = "5000",
-                                                "Robust-10000" = "10000"), selected = "500"),
-                                  selectInput("tSNEpp", "tSNE prplx:",
-                                              c("10" = "10",
-                                                "50" = "50",
-                                                "100" = "100",
-                                                "200" = "200"), selected = "50"),
-                                  actionButton("run_tSNE_CS_batch", "Run tSNE (batch-removed)"),
-                                  width = 10, background = "black",
-                                ),
+                                
                                 box(
                                   title = "tSNE Batch removed", status = "primary", solidHeader = TRUE,
                                   collapsible = TRUE,
@@ -293,6 +290,7 @@ ui <- dashboardPage(skin="red",
                                       collapsible = TRUE,
                                       actionButton("prevSDA_br2", "Prev comp"),
                                       actionButton("nextSDA_br2", "Next comp"),
+                                      textInput("SDAVn", "SDA comp. No:"),
                                     plotOutput("SDAtsne_br2"),
                                     width=5, background = "black"
                                   ),
@@ -323,9 +321,56 @@ ui <- dashboardPage(skin="red",
                                 )
                         ),
                         
-                        # Enrichment tab content
-                        tabItem(tabName = "Enrichment",
+                        # Batch-Removed Exploration
+                        tabItem(tabName = "GeneExplorer",
+                                h2("DGE_SDA Batched Removed DGE Explorer"),
                                 fluidRow(
+                                  box(
+                                    title = "Inputs", status = "warning", solidHeader = TRUE,
+                                    "Multiple formatting of gene sets accepted", 
+                                    br(), "List can be seperated by comma e.g. from ", 
+                                    br(), "   or spaces e.g. from Excel", 
+                                    br(), "Also, single or double quotes or not",
+                                    #sliderInput("ComponentN", "Slider input:", 1, 150, 1),
+                                    textInput("GeneSet", "A set of genes", "'CD19', 'CD20', 'MS4A1', 'IGHM', 'IGHA2'"),
+                                    width = 5
+                                  ),
+                                  
+                                  box(
+                                    title = "BatchRemoved-DGE Expr", status = "primary", solidHeader = TRUE,
+                                    collapsible = TRUE,
+                                    plotOutput("GeneExprSDAtSNE"),
+                                    width = 5
+                                  ),
+                                  
+                                  
+                                  box(
+                                    title = "Positive Loadings", status = "primary", solidHeader = TRUE,
+                                    collapsible = TRUE,
+                                    plotOutput("GenesEnrichSDAPos"),
+                                    width = 10
+                                  ),
+                                  
+                                  box(
+                                    title = "Negative Loadings", status = "primary", solidHeader = TRUE,
+                                    collapsible = TRUE,
+                                    plotOutput("GenesEnrichSDANeg"),
+                                    width = 10
+                                  )
+                                  
+                                )
+                        ),
+                        
+                        # Batch-Removed Exploration
+                        tabItem(tabName = "SaveOut",
+                                h2("Save the results for downstream analysis"),
+                                fluidRow(
+                                  box(
+                                    title = "Save as Seurat Object", status = "primary", solidHeader = TRUE,
+                                    collapsible = TRUE,
+                                    actionButton("SaveAsSerObj", "Save as Seurat Obj"),
+                                    width = 5, background = "black"
+                                  )
                                   
                                 )
                         )
@@ -354,7 +399,10 @@ server <- function(input, output, session) {
                                                     recursive = FALSE)))
   
   
-
+  
+  
+  ## Main tab--------------------------------------
+  
 
 output$InfoBox <- renderValueBox({
     valueBox(
@@ -398,10 +446,30 @@ observeEvent(input$loadSDA, {
       
       # updateTextInput(session, "loadSDAmsg", value = "SDA Loaded")
       
+      QuantThr = 0.95
       
-      envv$MaxScore.thr <- quantile(SDAres$component_statistics$max_score, c(.95))
+      envv$MaxScore.thr <- quantile(SDAres$component_statistics$max_score, c(QuantThr))
       envv$QC_components  <- SDAres$component_statistics[max_score<envv$MaxScore.thr][order(Component)]$Component
       envv$QC_compIter <- min(envv$QC_components)
+      
+      NComps <- SDAres$command_arguments$num_comps
+      
+      TopN = 150
+      envv$TopN <- TopN
+      
+      SDA_TopNpos <- (as.data.frame(lapply(1:NComps, function(xN){
+        as.data.frame(print_gene_list(results = SDAres, i=xN, PosOnly = T, NegOnly = F, TopN = TopN))[1:TopN,1]
+      })))
+      colnames(SDA_TopNpos) <- paste0("SDAV", 1:NComps)
+
+      SDA_TopNneg <- (as.data.frame(lapply(1:NComps, function(xN){
+        as.data.frame(print_gene_list(results = SDAres, i=xN, PosOnly = F, NegOnly = T, TopN = TopN))[1:TopN,1]
+      })))
+      colnames(SDA_TopNneg) <- paste0("SDAV", 1:NComps)
+
+      envv$SDA_TopNpos <- SDA_TopNpos
+      envv$SDA_TopNneg <- SDA_TopNneg
+      
       
       if(file.exists(paste0(stringr::str_split(envv$path2SDA_dyn, "sda_results")[[1]][1], "ComboSeuratObj_AgSpT_MetaDF.rds"))){
         MetaDF <- readRDS(paste0(stringr::str_split(envv$path2SDA_dyn, "sda_results")[[1]][1], "ComboSeuratObj_AgSpT_MetaDF.rds"))
@@ -622,7 +690,8 @@ observeEvent(input$runtSNEQCfilt, {
 })
 
 
-## Main tab--------------------------------------
+
+
 
 
 output$SDAqcMaxScorefilt <- renderPlot({
@@ -943,11 +1012,11 @@ observeEvent(input$run_tSNE_CS_batch, {
   if(is.null(envv$SDAres)){ 
     envv$InfoBox_sub = "Load SDA"
   } else {
-    
+    # envv$Remove_comps = c(13, 40)
     SDAres <- envv$SDAres
     suffix <- paste(envv$Remove_comps, collapse = "_")
-    tSNE_n.iter <- as.numeric(input$tSNEiter)
-    tSNE_pp <- as.numeric(input$tSNEpp)
+    tSNE_n.iter <- as.numeric(input$tSNEiter) # tSNE_n.iter = 1000
+    tSNE_pp <- as.numeric(input$tSNEpp) # tSNE_pp = 50
     
     choice <-  1:as.numeric(envv$SDAres$command_arguments$num_comps) #paste0("SDA", 1:as.numeric(envv$SDAres$command_arguments$num_comps)) # envv$QC_components
     selected <- setdiff(choice, envv$Remove_comps)
@@ -1303,6 +1372,37 @@ observeEvent(input$prevSDA_br2, {
   
 })
 
+observeEvent(input$SDAVn, {
+  
+  
+  
+  # SDAorder <- 1:as.numeric(envv$SDAres$command_arguments$num_comps)
+  
+  if(!is.null(input$SDAVn)) {
+    if(!is.null(envv$QC_compIter)){
+      
+      choice <-  1:as.numeric(envv$SDAres$command_arguments$num_comps) #paste0("SDA", 1:as.numeric(envv$SDAres$command_arguments$num_comps)) # envv$QC_components
+      SDAorder <- setdiff(choice, envv$Remove_comps)
+      
+      input$SDAVn <- as.character(envv$QC_compIter)
+      
+      if(as.numeric(input$SDAVn) %in% SDAorder) {
+        
+        envv$QC_compIter = as.numeric(input$SDAVn)
+        
+      } else {
+        
+      }
+      
+    }}
+    
+
+  
+  
+  
+})
+
+
 output$SDAtsne_br2 <- renderPlot({
   
   if(is.null(envv$SDAres)){
@@ -1431,7 +1531,302 @@ output$packageTableNeg <- renderTable({
     as.data.frame() %>%
     head(as.numeric(50))
 }, digits = 1)
+
+
+## Enrich N Explore-----------
+
+
+output$GenesEnrichSDAPos <- renderPlot({
   
+  SDAres <- envv$SDAres
+  SDA_TopNpos <- envv$SDA_TopNpos
+  
+  envv$TopN
+  
+  # N = total number of genes (usually not entire genome, since many have unk func)
+  N=length(colnames(SDAres$loadings[[1]]))
+  # k = number of genes submitted, top N
+  k = envv$TopN
+  
+  GeneSet <- input$GeneSet
+
+
+    if(length(grep(",", GeneSet)) == 0){
+
+      if(length(grep('"', GeneSet)) + length(grep("'", GeneSet))>0) {
+        GeneSet <- unlist(strsplit(gsub("'", '', gsub('"', '', GeneSet)), " "))
+      } else {
+        GeneSet <- unlist(strsplit(GeneSet, " "))
+      }
+
+
+    } else {
+      GeneSet <- (unlist(strsplit(gsub(" ", "", gsub("'", '', gsub('"', '', GeneSet))), ",")))
+
+    }
+  
+  GeneSetNot <- GeneSet[!GeneSet %in% colnames(SDAres$loadings[[1]][,])]
+  
+  print("length of your genes:")
+  print(length(GeneSet))
+  GeneSet <- GeneSet[GeneSet %in% colnames(SDAres$loadings[[1]][,])]
+  print("length of your genes in this dataset:")
+  print(length(GeneSet))
+  
+  
+  
+  
+  # print("length of your genes in this dataset:")
+  # print(length(GeneSet))
+  
+  plotEnrich(GeneSetsDF=SDA_TopNpos, 
+             GeneVec = GeneSet, 
+             plotTitle= paste0("Gene-set enrichment\n SDA top ", k, " pos loadings\nGene universe size: ", N, "\n Hypergeometric test: * adj.p < 0.01 \n Genes not found: ",
+                               paste0(GeneSetNot, collapse = ", ")),
+             xLab = "SDA Comps",
+             N=N,
+             k=k)
+  
+  
+})
+
+
+output$GenesEnrichSDANeg <- renderPlot({
+  
+  SDAres <- envv$SDAres
+  SDA_TopNneg <- envv$SDA_TopNneg
+  
+  # envv$TopN
+  
+  # N = total number of genes (usually not entire genome, since many have unk func)
+  N=length(colnames(SDAres$loadings[[1]]))
+  # k = number of genes submitted, top N
+  k = envv$TopN
+  
+  GeneSet <- input$GeneSet
+  
+  
+  if(length(grep(",", GeneSet)) == 0){
+    
+    if(length(grep('"', GeneSet)) + length(grep("'", GeneSet))>0) {
+      GeneSet <- unlist(strsplit(gsub("'", '', gsub('"', '', GeneSet)), " "))
+    } else {
+      GeneSet <- unlist(strsplit(GeneSet, " "))
+    }
+    
+    
+  } else {
+    GeneSet <- (unlist(strsplit(gsub(" ", "", gsub("'", '', gsub('"', '', GeneSet))), ",")))
+    
+  }
+  
+  
+  GeneSetNot <- GeneSet[!GeneSet %in% colnames(SDAres$loadings[[1]][,])]
+  
+  print("length of your genes:")
+  print(length(GeneSet))
+  GeneSet <- GeneSet[GeneSet %in% colnames(SDAres$loadings[[1]][,])]
+  print("length of your genes in this dataset:")
+  print(length(GeneSet))
+  
+  
+  
+  
+  # print("length of your genes in this dataset:")
+  # print(length(GeneSet))
+  
+  plotEnrich(GeneSetsDF=SDA_TopNneg, 
+             GeneVec = GeneSet, 
+             plotTitle= paste0("Gene-set enrichment\n SDA top ", k, " neg loadings\nGene universe size: ", N, "\n Hypergeometric test: * adj.p < 0.01 \n Genes not found: ",
+                               paste0(GeneSetNot, collapse = ", ")),
+             xLab = "SDA Comps",
+             N=N,
+             k=k)
+  
+  
+})
+
+
+
+
+output$GeneExprSDAtSNE <- renderPlot({
+  
+  GeneSet <- input$GeneSet
+  
+  
+  if(length(grep(",", GeneSet)) == 0){
+    
+    if(length(grep('"', GeneSet)) + length(grep("'", GeneSet))>0) {
+      GeneSet <- unlist(strsplit(gsub("'", '', gsub('"', '', GeneSet)), " "))
+    } else {
+      GeneSet <- unlist(strsplit(GeneSet, " "))
+    }
+    
+    
+  } else {
+    GeneSet <- (unlist(strsplit(gsub(" ", "", gsub("'", '', gsub('"', '', GeneSet))), ",")))
+    
+  }
+  
+  
+
+  if(is.null(envv$SDAres)){
+    plot(x=0, y=0, main="Load an SDA")
+  } else {
+    
+    tempDFX <- as.data.frame(envv$tsne_CS_batch$Y)
+    rownames(tempDFX)  <- rownames(envv$SDAres$scores)
+    colnames(tempDFX) <- c("tSNE1_batch", "tSNE2_batch")
+    
+    tempDFX$GeneExpr <- rep(0, nrow(tempDFX))
+    
+
+    SDAres <- envv$SDAres
+    
+    GeneSet <- GeneSet[GeneSet %in% colnames(SDAres$loadings[[1]])]
+    
+    if(length(GeneSet)>1){
+      
+      GeneExpr <- SDAres$scores %*% SDAres$loadings[[1]][,as.character(GeneSet)]
+      GeneExpr <- as.data.frame(rowSums(GeneExpr))
+      
+      TitleX = paste0("Sum-Expr of :", paste(GeneSet, collapse = "_") )
+      
+
+    } else if(length(GeneSet)==1){
+      GeneExpr <- SDAres$scores %*% SDAres$loadings[[1]][,as.character(GeneSet)]
+      TitleX = paste0("Expr of :", GeneSet )
+      
+      
+    } else if(!length(GeneSet)>=1)  {
+      GeneExpr <- SDAres$scores %*% rep(0, nrow(SDAres$loadings[[1]]))
+      TitleX = "No genes in input"
+    }
+    
+
+
+    tempDFX[rownames(GeneExpr), ]$GeneExpr <- GeneExpr[,1]
+    
+    
+    
+    
+    
+    
+    # tempDFX <- (envv$tSNEGEx_br)
+    print(head(tempDFX))
+    # TitleX <- envv$tSNEGEx_tit
+    
+
+    ggplot(tempDFX, aes(tSNE1_batch, tSNE2_batch,  color=cut(asinh(GeneExpr^3),
+                                                             breaks = c(-Inf, -1, -.5, 0, .5, 1, Inf)))) +
+      geom_point(size=.5) + theme_bw() +
+      scale_color_manual("Expr", values = rev(c("red", "orange", "yellow", "lightblue", "dodgerblue", "blue")) ) +
+      guides(colour = guide_legend(override.aes = list(size=2, alpha=1))) +
+      theme(legend.position = "bottom", aspect.ratio=1) +
+      simplify2 + coord_cartesian(xlim = NULL, ylim = NULL, expand = FALSE) +
+      ggtitle(paste0("SDA-Batch-removed DGE\n", TitleX))+
+      ylab("asinh(GeneExpr^3)")
+
+
+
+
+  }
+  
+  
+  
+  
+})
+
+## SAve out ------------
+
+observeEvent(input$SaveAsSerObj, {
+  
+  
+  if(is.null(envv$SDAres)){ 
+    envv$InfoBox_sub = "Load SDA"
+  } else {
+    
+    head.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][2]
+    base.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][1]
+    
+    SDAres <- envv$SDAres
+    
+  
+  
+    # print(names(envv))
+    library(Seurat)
+    
+    ## create an empty Seurat object
+    Mat1 <- abs(Matrix::rsparsematrix(20, nrow(SDAres$scores), density = .8))
+    
+    
+    colnames(Mat1) <- rownames(SDAres$scores)
+    rownames(Mat1) <- paste0("Gene", 1:nrow(Mat1))
+    
+    
+    
+    
+    Ser1 <- CreateSeuratObject(Mat1)
+    Ser1 <- NormalizeData(Ser1) #needed for FindVariableFeatures
+    Ser1 <- FindVariableFeatures(Ser1) #needed for ScaleData
+    Ser1 <- ScaleData(Ser1, features = rownames(x = Ser1)) #needed for RunPCA
+    Ser1 <- RunPCA(Ser1, npcs = 5, verbose = T) # creates @ reduction object
+    
+    
+    
+    reduction.data <- CreateDimReducObject(
+      embeddings = (SDAres$scores),
+      loadings = t(SDAres$loadings[[1]]),
+      assay = "RNA",
+      stdev = apply(SDAres$scores, 2, sd),
+      key = "SDA_",
+      misc = list(command.args = SDAres$command_arguments,
+                  n.cells = SDAres$n,
+                  pip.mat = SDAres$pips[[1]],
+                  pip.frac = SDAres$pip_fraction,
+                  iterations = seq_len(ncol(SDAres$free_energy)) * as.numeric(SDAres$command$free_freq),
+                  free.energu = SDAres$free_energy[1, ])
+    )
+    
+    # Ser0@reductions[["SDA"]] <- reduction.data
+    
+    Ser1@reductions[["SDA"]] <- reduction.data
+    
+    rownames(envv$tsne_CS_batch$Y) <- rownames((SDAres$scores))
+   
+    tsne.reduction_CS_BR <- CreateDimReducObject(
+      embeddings = (envv$tsne_CS_batch$Y),
+      key = "tSNECSBR_",
+      assay = "RNA"
+    )
+    
+    Ser1@reductions[["tSNECSBR"]] <- tsne.reduction_CS_BR
+  }
+  
+  Ser1@misc$SDA_processing_results <- list(GOAnn = envv$GOAnn,
+                                           GO_data = envv$GO_data,
+                                           MaxScore.thr = envv$MaxScore.thr,
+                                           path2SDA_dyn = envv$path2SDA_dyn,
+                                           SDA_TopNneg = envv$SDA_TopNneg,
+                                           TopN = envv$TopN,
+                                           SDA_TopNpos = envv$SDA_TopNpos,
+                                           Remove_comps = envv$Remove_comps,
+                                           QC_components = envv$QC_components,
+                                           tsne_CS_raw = envv$tsne_CS_all,
+                                           MetaDF = envv$MetaDF)
+  
+  print("Saving...")
+  saveRDS(Ser1, file=paste0(base.path, head.path, "_FinalSerObj", ".rds"))
+  print("Save complete...")
+  
+  
+#   1] "MaxScore.thr"  "y"             "GOAnn"         "path2SDA_dyn"  "SDAres"        "SDA_TopNneg"   "TopN"         
+# [8] "tsne_CS_all"   "tsne_CS_qc"    "Remove_comps"  "tsne_CS_batch" "QC_components" "QC_compIter"   "SDA_TopNpos"  
+# [15] "InfoBox_sub"   "MetaDF"        "GO_data"  
+})
+
+
+
 }
 
 shinyApp(ui, server)
