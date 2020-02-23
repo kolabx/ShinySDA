@@ -1843,7 +1843,10 @@ observeEvent(input$SaveAsSerObj, {
                                            Remove_comps = envv$Remove_comps,
                                            QC_components = envv$QC_components,
                                            tsne_CS_raw = envv$tsne_CS_all,
-                                           MetaDF = envv$MetaDF)
+                                           MetaDF = envv$MetaDF,
+                                           chromosome.lengths = envv$chromosome.lengths,
+                                           gene_locations = envv$gene_locations)
+
   
   print("Saving...")
   saveRDS(Ser1, file=paste0(base.path, head.path, "_FinalSerObj", ".rds"))
