@@ -293,3 +293,13 @@ plotEnrich <- function(GeneSetsDF, GeneVec, plotTitle="", xLab="", N = NULL, k =
   if(ReturnPval) return(1-p.value)
   
 }
+
+
+
+findIntRuns <- function(run){
+  rundiff <- c(1, diff(run))
+  difflist <- split(run, cumsum(rundiff!=1))
+  unlist(lapply(difflist, function(x){
+    if(length(x) %in% 1:2) as.character(x) else paste0(x[1], "-", x[length(x)])
+  }), use.names=FALSE)
+}

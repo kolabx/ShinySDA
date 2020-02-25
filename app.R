@@ -61,7 +61,7 @@ ui <- dashboardPage(skin="red",
                                   valueBoxOutput("InfoBox", width = 6),
                                   
                                   box(textInput("SDAroot", "Path to SDA folders. Expects dimnames in one dir up.", 
-                                                value ="../../../Expts/TetCombo2/data/sda_results"), #/Tet_SDADGE_DropSim_mi10000_nc40_N21509_rep1
+                                                value ="../../../Expts/TetCombo3/data/sda_results"), #/Tet_SDADGE_DropSim_mi10000_nc40_N21509_rep1
                                     uiOutput("select.folder"),
                                       actionButton("loadSDA", "Load SDA"),
                                       actionButton("getGeneAnn", "Get Gene Annotations"),
@@ -209,14 +209,16 @@ ui <- dashboardPage(skin="red",
                                     
                                     selectInput("tSNEiter", "tSNE n-iter:",
                                                 c("Fast-500" = "500",
-                                                  "Med-2000" = "2000",
-                                                  "Med-5000" = "5000",
-                                                  "Robust-10000" = "10000"), selected = "500"),
+                                                  "Med1-2000" = "2000",
+                                                  "Med2-5000" = "5000",
+                                                  "Robust-10000" = "10000",
+                                                  "OverKill-20000"="20000"), selected = "500"),
                                     selectInput("tSNEpp", "tSNE prplx:",
                                                 c("10" = "10",
                                                   "50" = "50",
                                                   "100" = "100",
-                                                  "200" = "200"), selected = "50"),
+                                                  "200" = "200",
+                                                  "400"  = "400"), selected = "50"),
                                     actionButton("run_tSNE_CS_batch", "Run tSNE (batch-removed)"),
                                     width = 5, background = "black",
                                   ),
@@ -424,15 +426,29 @@ observeEvent(input$loadSDA, {
     if(file.exists(envv$path2SDA_dyn)) {
 
       # loadloc = "../../../Expts/TetCombo2/data/sda_results/Tet_SDADGE_DropSim_mi10000_nc40_N21509_rep1"
+      # loadloc = "../../../../Conrad/R/Utah/sda_results/Testis_Run2/TestisV2_150Kgenes_SDA_mi10000_nc150_N26300_rep1"
       # input <- list(); envv <- list()
       # envv$path2SDA_dyn = loadloc
-      
+      # 
       # updateTextInput(session, "loadSDAmsg", value = "Loading SDA")
       envv$InfoBox_sub = "Loading SDA"
       
+      
+      if(sum(grepl("_dimnames", list.files(dirname(envv$path2SDA_dyn), recursive = T)))==0){
+        DimNamesPath <- paste0(dirname(dirname(envv$path2SDA_dyn)), "/")
+      } else {
+        DimNamesPath <- paste0(dirname(envv$path2SDA_dyn), "/")
+        
+      }
+      # print(DimNamesPath)
+      
+     
+     
+      
+      
       SDAres <- SDAtools::load_results(
         results_folder = envv$path2SDA_dyn,
-        data_path =  stringr::str_split(envv$path2SDA_dyn, "sda_results")[[1]][1])
+        data_path =  DimNamesPath)
 
 
       #update the names
@@ -470,10 +486,30 @@ observeEvent(input$loadSDA, {
       envv$SDA_TopNpos <- SDA_TopNpos
       envv$SDA_TopNneg <- SDA_TopNneg
       
+      MetaPath.base <- stringr::str_split(envv$path2SDA_dyn, "sda_results")[[1]][1]
+      # MetaPath.base = "../../../Expts/TetCombo3/data/"
+      MetaPath <- list.files(MetaPath.base, full.names = T)[grepl("_MetaDF", list.files(MetaPath.base))][1]
       
-      if(file.exists(paste0(stringr::str_split(envv$path2SDA_dyn, "sda_results")[[1]][1], "ComboSeuratObj_AgSpT_MetaDF.rds"))){
-        MetaDF <- readRDS(paste0(stringr::str_split(envv$path2SDA_dyn, "sda_results")[[1]][1], "ComboSeuratObj_AgSpT_MetaDF.rds"))
+      
+      if(file.exists(MetaPath)){
+        # Maybe this can be a dropdown too..
+        #for now, 
+        
+        MetaDF <- readRDS(MetaPath)
+
         envv$MetaDF <- MetaDF
+        
+        sum(rownames(envv$SDAres$scores) %in% rownames(envv$MetaDF))
+        
+        envv$SDAres$scores <- envv$SDAres$scores[!grepl("remove", rownames(envv$SDAres$scores)),]
+        
+   
+        envv$MetaDF <- envv$MetaDF[rownames(envv$SDAres$scores), ]
+        
+        envv$SDAres$n$individuals <- nrow(envv$SDAres$scores)
+        envv$SDAres$command_arguments$N <- as.character(nrow(envv$SDAres$scores))
+        
+        
         envv$InfoBox_sub = "SDA & Meta Loaded"
       } else {
         envv$InfoBox_sub = "SDA Loaded - Meta not found"
@@ -499,24 +535,30 @@ observeEvent(input$getGeneAnn, {
     head.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][2]
     base.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][1]
     
+    head.path <- gsub("/", "", head.path)
+    
+    print(head.path)
+    print(envv$path2SDA_dyn)
+    
     SDAres <- envv$SDAres
     
+    # stringr::str_split("../../../../Conrad/R/Utah/sda_results/Testis_Run2", "sda_results/")
     
+    # basename("../../../../Conrad/R/Utah/sda_results/Testis_Run2")
     
-    
-    if(!file.exists(paste0(base.path, head.path, "_biomaRt_gene_loc_human.rds"))){
+    if(!file.exists(paste0(envv$path2SDA_dyn, "/", head.path,  "_biomaRt_gene_loc_human.rds"))){
       
       gene_locations <- get.location(gene.symbols=colnames(SDAres$loadings[[1]]),
                                      data_set = "hsapiens_gene_ensembl",
                                      gene_name = "external_gene_name")
       
-      saveRDS(gene_locations, paste0(base.path, head.path, "_biomaRt_gene_loc_human.rds"))
+      saveRDS(gene_locations, paste0(envv$path2SDA_dyn, "/", head.path,  "_biomaRt_gene_loc_human.rds"))
       
     } else {
-      gene_locations <- readRDS(paste0(base.path, head.path, "_biomaRt_gene_loc_human.rds"))
+      gene_locations <- readRDS(paste0(envv$path2SDA_dyn, "/", head.path, "_biomaRt_gene_loc_human.rds"))
     }
     
-    if(!file.exists(paste0(base.path, head.path, "_SDAtools_GeneLoc_human.rds"))){
+    if(!file.exists(paste0(envv$path2SDA_dyn, "/", head.path, "_SDAtools_GeneLoc_human.rds"))){
       
       GeneLoc         <- SDAtools::load_gene_locations(path = base.path,
                                                        genes = colnames(SDAres$loadings[[1]]),
@@ -524,12 +566,12 @@ observeEvent(input$getGeneAnn, {
                                                        name="human")
       chromosome.lengths <- SDAtools::load_chromosome_lengths(organism = "hsapiens_gene_ensembl")
       
-      saveRDS(GeneLoc, paste0(base.path, head.path, "_SDAtools_GeneLoc_human.rds"))
-      saveRDS(chromosome.lengths, paste0(base.path, head.path, "_SDAtools_chromosome.lengths.rds"))
+      saveRDS(GeneLoc, paste0(envv$path2SDA_dyn, "/", head.path, "_SDAtools_GeneLoc_human.rds"))
+      saveRDS(chromosome.lengths, paste0(envv$path2SDA_dyn, "/", head.path, "_SDAtools_chromosome.lengths.rds"))
       
     } else {
-      GeneLoc                <- readRDS(paste0(base.path, head.path, "_SDAtools_GeneLoc_human.rds"))
-      chromosome.lengths     <- readRDS(paste0(base.path, head.path, "_SDAtools_chromosome.lengths.rds"))
+      GeneLoc                <- readRDS(paste0(envv$path2SDA_dyn, "/", head.path, "_SDAtools_GeneLoc_human.rds"))
+      chromosome.lengths     <- readRDS(paste0(envv$path2SDA_dyn, "/", head.path, "_SDAtools_chromosome.lengths.rds"))
     }
     
     envv$chromosome.lengths <- chromosome.lengths
@@ -554,6 +596,9 @@ observeEvent(input$getSDAGo, {
     base.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][1]
     NComps <- as.numeric(envv$SDAres$command_arguments$num_comps)
     
+    head.path <- gsub("/", "", head.path)
+    
+    
     SDAres <- envv$SDAres
     
     envv$InfoBox_sub <- paste0(NComps, " comps, ~30 sec per comp")
@@ -575,7 +620,7 @@ observeEvent(input$getSDAGo, {
     envv$GOAnn <- list(HuMAN = HuMAN, HuMAN.names = HuMAN.names)
 
     
-    if(!file.exists(paste0(base.path, head.path, "_SDA_GO_Comps.rds"))){
+    if(!file.exists(paste0(envv$path2SDA_dyn, "/", head.path,"_SDA_GO_Comps.rds"))){
       
       GO_data <- list()
       
@@ -589,12 +634,12 @@ observeEvent(input$getSDAGo, {
         GO_data[[paste0("V",i,"P")]] <- GO_enrichment(results =SDAres, i, side="P", geneNumber = 100, threshold=0.05, OrgDb =HuMAN)
       }
       
-      saveRDS(GO_data, paste0(base.path, head.path, "_SDA_GO_Comps.rds"))
+      saveRDS(GO_data, paste0(envv$path2SDA_dyn, "/", head.path,"_SDA_GO_Comps.rds"))
       
     } else{
       print("Loaded previously saved GO annotations.")
       
-      GO_data <- readRDS(paste0(base.path, head.path, "_SDA_GO_Comps.rds"))
+      GO_data <- readRDS(paste0(envv$path2SDA_dyn, "/", head.path,"_SDA_GO_Comps.rds"))
     }
     
     envv$InfoBox_sub <- "GO data loaded"
@@ -618,23 +663,28 @@ observeEvent(input$runtSNE, {
     head.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][2]
     base.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][1]
     
+    head.path <- gsub("/", "", head.path)
+    
     SDAres <- envv$SDAres
    
+    # length(which(duplicated(SDAres$scores[,])))
     
-    if(!file.exists(paste0(base.path, head.path, "_tSNE_CellScore_AllComps_pp50.rds"))){
+    if(!file.exists(paste0(envv$path2SDA_dyn, "/", head.path,"_tSNE_CellScore_AllComps_pp50.rds"))){
       
       envv$InfoBox_sub = "Starting tSNE with cell scores - all comps.. wait"
       tsne_CS_all <- Rtsne::Rtsne(SDAres$scores[,], verbose=TRUE, pca=FALSE, perplexity = 50, 
-                                  max_iter=1000, num_threads = 8)
+                                  max_iter=1000, num_threads = 8, check_duplicates = F)
     
       
       envv$InfoBox_sub = "Saving tSNE with cell scores - all comps.. wait"
-      saveRDS(tsne_CS_all, file=paste0(base.path, head.path, "_tSNE_CellScore_AllComps_pp50.rds"))
+      saveRDS(tsne_CS_all, file=paste0(envv$path2SDA_dyn, "/", head.path,"_tSNE_CellScore_AllComps_pp50.rds"))
       
+      envv$InfoBox_sub = "tSNE complete"
+      if(length(which(duplicated(SDAres$scores[,])))>0) envv$InfoBox_sub = paste0("tSNE complete : dups=", length(which(duplicated(SDAres$scores[,]))))
       
       
     } else {
-      tsne_CS_all <- readRDS(paste0(base.path, head.path, "_tSNE_CellScore_AllComps_pp50.rds"))
+      tsne_CS_all <- readRDS(paste0(envv$path2SDA_dyn, "/", head.path,"_tSNE_CellScore_AllComps_pp50.rds"))
     }
     envv$InfoBox_sub = "raw tSNE with cell scores complete"
     envv$tsne_CS_all <- tsne_CS_all
@@ -656,11 +706,13 @@ observeEvent(input$runtSNEQCfilt, {
     head.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][2]
     base.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][1]
     
+    head.path <- gsub("/", "", head.path)
+    
     
     tSNE_n.iter = 1000
     tSNE_pp = 50
     
-    if(!file.exists(paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))){
+    if(!file.exists(paste0(envv$path2SDA_dyn, "/", head.path,"_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))){
       
       
       
@@ -669,15 +721,15 @@ observeEvent(input$runtSNEQCfilt, {
       
       envv$InfoBox_sub = "Starting tSNE with cell scores - qc comps.. wait"
       tsne_CS_qc <- Rtsne::Rtsne(SDAres$scores[,envv$QC_components], verbose=TRUE, pca=FALSE, perplexity = tSNE_pp, 
-                                 max_iter=tSNE_n.iter, num_threads = 8)
+                                 max_iter=tSNE_n.iter, num_threads = 8, check_duplicates = F)
       
       envv$InfoBox_sub = "Saving tSNE with cell scores - qc comps.. wait"
-      saveRDS(tsne_CS_qc, file=paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))
+      saveRDS(tsne_CS_qc, file=paste0(envv$path2SDA_dyn, "/", head.path,"_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))
       
       
       
     } else {
-      tsne_CS_qc <- readRDS(paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))
+      tsne_CS_qc <- readRDS(paste0(envv$path2SDA_dyn, "/", head.path,"_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))
     }
     envv$InfoBox_sub = "qc tSNE with cell scores complete"
     envv$tsne_CS_qc <- tsne_CS_qc
@@ -1014,7 +1066,19 @@ observeEvent(input$run_tSNE_CS_batch, {
   } else {
     # envv$Remove_comps = c(13, 40)
     SDAres <- envv$SDAres
-    suffix <- paste(envv$Remove_comps, collapse = "_")
+    if(length(envv$Remove_comps) > 50) {
+      # suffix <- paste(envv$Remove_comps, collapse = "")
+      
+      suffix <- paste0("LargeSetOfComps_", length(envv$Remove_comps))
+      
+    } else if(length(envv$Remove_comps) > 30 & length(envv$Remove_comps) <= 50 ) {
+      
+      suffix <- paste0(findIntRuns(as.numeric(unlist(strsplit(envv$Remove_comps, ",")))), collapse="")
+      
+      } else if (length(envv$Remove_comps) <= 30) {
+        suffix <- paste(envv$Remove_comps, collapse = "_")
+      }
+    
     tSNE_n.iter <- as.numeric(input$tSNEiter) # tSNE_n.iter = 1000
     tSNE_pp <- as.numeric(input$tSNEpp) # tSNE_pp = 50
     
@@ -1024,20 +1088,23 @@ observeEvent(input$run_tSNE_CS_batch, {
     head.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][2]
     base.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][1]
     
-    if(!file.exists(paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))){
+    head.path <- gsub("/", "", head.path)
+    
+    
+    if(!file.exists(paste0(envv$path2SDA_dyn, "/", head.path,"_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))){
       
       envv$InfoBox_sub = "Starting tSNE with cell scores - batch-removal.. wait"
       tsne_CS_batch <- Rtsne::Rtsne(SDAres$scores[,selected], verbose=TRUE, pca=FALSE, 
                                     perplexity = tSNE_pp, 
-                                 max_iter=tSNE_n.iter, num_threads = 8)
+                                 max_iter=tSNE_n.iter, num_threads = 8, check_duplicates = F)
       
       envv$InfoBox_sub = "Saving tSNE with cell scores - batch-removal.. wait"
-      saveRDS(tsne_CS_batch, file=paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))
+      saveRDS(tsne_CS_batch, file=paste0(envv$path2SDA_dyn, "/", head.path,"_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))
       
       
       
     } else {
-      tsne_CS_batch <- readRDS(paste0(base.path, head.path, "_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))
+      tsne_CS_batch <- readRDS(paste0(envv$path2SDA_dyn, "/", head.path,"_tSNE_CellScore_QCfil_",tSNE_n.iter,"_pp",tSNE_pp,"", suffix, ".rds"))
     }
     envv$InfoBox_sub = "batch-removal tSNE with cell scores complete"
     envv$tsne_CS_batch <- tsne_CS_batch
@@ -1065,13 +1132,16 @@ observeEvent(input$save_batch_selection, {
     head.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][2]
     base.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][1]
     
+    head.path <- gsub("/", "", head.path)
+    
+    
     SDAres <- envv$SDAres
     
   
     # choice <-  1:as.numeric(envv$SDAres$command_arguments$num_comps) #paste0("SDA", 1:as.numeric(envv$SDAres$command_arguments$num_comps)) # envv$QC_components
     selected <- envv$Remove_comps
     # print(head(selected))
-    saveRDS(selected, file=paste0(base.path, head.path, "_BatchSelectedComps", ".rds"))
+    saveRDS(selected, file=paste0(envv$path2SDA_dyn, "/", head.path,"_BatchSelectedComps", ".rds"))
     
     
   }
@@ -1087,8 +1157,11 @@ observeEvent(input$load_batch_selection, {
     head.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][2]
     base.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][1]
     
-    if(file.exists(paste0(base.path, head.path, "_BatchSelectedComps", ".rds"))){
-      selected <- readRDS(paste0(base.path, head.path, "_BatchSelectedComps", ".rds"))
+    head.path <- gsub("/", "", head.path)
+    
+    
+    if(file.exists(paste0(envv$path2SDA_dyn, "/", head.path,"_BatchSelectedComps", ".rds"))){
+      selected <- readRDS(paste0(envv$path2SDA_dyn, "/", head.path,"_BatchSelectedComps", ".rds"))
     } else {
       choice <-  1:as.numeric(envv$SDAres$command_arguments$num_comps) 
       selected <- setdiff(choice, envv$QC_components)
@@ -1779,6 +1852,9 @@ observeEvent(input$SaveAsSerObj, {
     head.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][2]
     base.path <- stringr::str_split(envv$path2SDA_dyn, "sda_results/")[[1]][1]
     
+    head.path <- gsub("/", "", head.path)
+    
+    
     SDAres <- envv$SDAres
     
   
@@ -1849,7 +1925,7 @@ observeEvent(input$SaveAsSerObj, {
 
   
   print("Saving...")
-  saveRDS(Ser1, file=paste0(base.path, head.path, "_FinalSerObj", ".rds"))
+  saveRDS(Ser1, file=paste0(envv$path2SDA_dyn, "/", head.path,"_FinalSerObj", ".rds"))
   print("Save complete...")
   
   
