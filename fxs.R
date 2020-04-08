@@ -39,7 +39,7 @@ AddCompStats <- function(SDAres, sdThrsh = 0.04, maxscoreThrsh=20, maxloadThrsh 
   
   SDAres$component_statistics[which(SDAres$component_statistics$sd_loading<sdThrsh),]$Component_namev2         <- rep("", length(which(SDAres$component_statistics$sd_loading<sdThrsh)))
   
-  SDAres$component_statistics[which(SDAres$component_statistics$max_score<maxscoreThrsh & SDAres$component_statistics$max_loading<maxloadThrsh),]$Component_name_plot <- rep("", length(which(SDAres$component_statistics$max_score<maxscoreThrsh & SDAres$component_statistics$max_loading<maxloadThrsh)))
+  # SDAres$component_statistics[which(SDAres$component_statistics$max_score<maxscoreThrsh & SDAres$component_statistics$max_loading<maxloadThrsh),]$Component_name_plot <- rep("", length(which(SDAres$component_statistics$max_score<maxscoreThrsh & SDAres$component_statistics$max_loading<maxloadThrsh)))
   
   SDAres$component_statistics <- data.table(SDAres$component_statistics)
   return(SDAres)
@@ -303,3 +303,4 @@ findIntRuns <- function(run){
     if(length(x) %in% 1:2) as.character(x) else paste0(x[1], "-", x[length(x)])
   }), use.names=FALSE)
 }
+
