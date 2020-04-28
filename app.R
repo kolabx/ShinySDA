@@ -1,4 +1,6 @@
 
+# options(repos=structure(BiocManager::repositories()))
+# detach("package:Biobase", unload=TRUE)
 
 library(shiny)
 library(shinyWidgets)
@@ -107,6 +109,18 @@ ui <- dashboardPage(skin="red",
                                 h2("Full QC plots content"),
                                 fluidRow(
                                   box(
+                                    title = "ChiSqrRes Scores Pos cellscores", status = "primary", solidHeader = TRUE,
+                                    collapsible = TRUE,
+                                    plotOutput("SDAScoresChiPos", height = 500), 
+                                    width = 10, background = "black"
+                                  ),
+                                  box(
+                                    title = "ChiSqrRes Scores Neg cellscores", status = "primary", solidHeader = TRUE,
+                                    collapsible = TRUE,
+                                    plotOutput("SDAScoresChiNeg", height = 500), 
+                                    width = 10, background = "black"
+                                  ),
+                                  box(
                                     title = "QC1", status = "primary", solidHeader = TRUE,
                                     collapsible = TRUE,
                                     plotOutput("SDAqc1"), 
@@ -175,14 +189,14 @@ ui <- dashboardPage(skin="red",
                                   )
                                   
                                   
-                                  
-                                  ,
-                                  box(
-                                    title = "main", status = "primary", solidHeader = TRUE,
-                                    collapsible = TRUE,
-                                    plotOutput("main"), 
-                                    width = 5, background = "black"
-                                  )
+                                  # 
+                                  # ,
+                                  # box(
+                                  #   title = "main", status = "primary", solidHeader = TRUE,
+                                  #   collapsible = TRUE,
+                                  #   plotOutput("main"), 
+                                  #   width = 5, background = "black"
+                                  # )
                                   
                                 )
                         ),
@@ -230,18 +244,6 @@ ui <- dashboardPage(skin="red",
                                     actionButton("run_tSNE_CS_batch", "Run tSNE (batch-removed)"),
                                     actionButton("SDAScoresChi_clus", "Show/Hide Pairwise Clustering"),
                                     width = 5, background = "black",
-                                  ),
-                                  box(
-                                    title = "ChiSqrRes Scores Pos cellscores", status = "primary", solidHeader = TRUE,
-                                    collapsible = TRUE,
-                                    plotOutput("SDAScoresChiPos", height = 300), 
-                                    width = 5, background = "black"
-                                  ),
-                                  box(
-                                    title = "ChiSqrRes Scores Neg cellscores", status = "primary", solidHeader = TRUE,
-                                    collapsible = TRUE,
-                                    plotOutput("SDAScoresChiNeg", height = 300), 
-                                    width = 5, background = "black"
                                   ),
                                   box(
                                     title = "Scores order by Meta", status = "primary", solidHeader = TRUE,
@@ -634,24 +636,26 @@ server <- function(input, output, session) {
       
       envv$InfoBox_sub <- paste0(NComps, " comps, ~30 sec per comp")
       
-      library(AnnotationHub) # source("https://bioconductor.org/biocLite.R"); biocLite("AnnotationHub")
-      library(clusterProfiler) # source("https://bioconductor.org/biocLite.R"); biocLite("clusterProfiler")
       
-      hub <- AnnotationHub()
-      
-      
-      query(hub, "org.Mmu.eg.db")
-      HuMAN.names <- query(hub, "org.Mmu.eg.db")#org.Hs.eg.db  org.MM.eg
-      
-      
-      HuMAN <- hub[["AH75746"]] #AH75742 #query(hub, "org.MM.eg"), AH52234, AH57184.... new human AH73986? or AH70572? old? AH66156 query(hub, "org.Hs.eg.db")
-      
-      
-      
-      envv$GOAnn <- list(HuMAN = HuMAN, HuMAN.names = HuMAN.names)
       
       
       if(!file.exists(paste0(envv$path2SDA_dyn, "/", head.path,"_SDA_GO_Comps.rds"))){
+        
+        library(AnnotationHub) # source("https://bioconductor.org/biocLite.R"); biocLite("AnnotationHub")
+        library(clusterProfiler) # source("https://bioconductor.org/biocLite.R"); biocLite("clusterProfiler")
+        
+        hub <- AnnotationHub()
+        
+        
+        query(hub, "org.Mmu.eg.db")
+        HuMAN.names <- query(hub, "org.Mmu.eg.db")#org.Hs.eg.db  org.MM.eg
+        
+        
+        HuMAN <- hub[["AH75746"]] #AH75742 #query(hub, "org.MM.eg"), AH52234, AH57184.... new human AH73986? or AH70572? old? AH66156 query(hub, "org.Hs.eg.db")
+        
+        
+        
+        envv$GOAnn <- list(HuMAN = HuMAN, HuMAN.names = HuMAN.names)
         
         GO_data <- list()
         

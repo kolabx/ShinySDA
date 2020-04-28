@@ -22,22 +22,33 @@ RUN Rscript -e "install.packages(c('devtools', 'BiocManager', 'remotes'), depend
     && Rscript -e "devtools::install_github(repo = 'bimberlabinternal/OOSAP', ref = 'Dev', dependencies = T, upgrade = 'always')" \
     && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
 
-# This should not be cached if the files change
-ADD . /OOSAP
+RUN Rscript -e 'remotes::install_github("marchinilab/SDAtools")'
 
-RUN cd /OOSAP \
-    && R CMD build . \
-    && Rscript -e "print(getOption('repos'))" \
-    && Rscript -e "BiocManager::install(ask = F)" \
-    && Rscript -e "devtools::install_deps(pkg = '.', dependencies = TRUE, threads = getOption('Ncpus',1))" \
-    && R CMD INSTALL --build *.tar.gz \
-    && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
+# # This should not be cached if the files change
+# ADD . /OOSAP
+# 
+# RUN cd /OOSAP \
+#     && R CMD build . \
+#     && Rscript -e "print(getOption('repos'))" \
+#     && Rscript -e "BiocManager::install(ask = F)" \
+#     && Rscript -e "devtools::install_deps(pkg = '.', dependencies = TRUE, threads = getOption('Ncpus',1))" \
+#     && R CMD INSTALL --build *.tar.gz \
+#     && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
 
 ##avoid caching of below commands
 ARG CACHEBUST=3
+
+
+
+
 # copy the app to the image
-COPY ShinySDA /usr/local/src/ShinySDA/
+COPY . /usr/local/src/ShinySDA/
+WORKDIR /usr/local/src/ShinySDA/
+# # Install packrat packages
+# RUN Rscript -e 'install.packages("packrat"); \
+#                 packrat::restore()'
+                
 # select port
 EXPOSE 3838
 # run app
-CMD ["R", "-e", "shiny::runApp('/usr/local/src/ShinySDA/', host ='0.0.0.0', port = 3838, launch.browser = TRUE)"]
+CMD ["R", "-e", "shiny::runApp('/usr/local/src/ShinySDA/', host ='0.0.0.0', port = 3838, launch.browser = FALSE)"]
