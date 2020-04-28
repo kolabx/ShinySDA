@@ -21,7 +21,7 @@ library("BiocParallel")
 register(MulticoreParam(4))
 
 
-source("fxs.R")
+source(system.file('app/fxs.R', package = 'ShinySDA', mustWork = TRUE), local = TRUE)
 
 
 ui <- dashboardPage(skin="red",
