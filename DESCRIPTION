@@ -42,6 +42,5 @@ Imports:
 Suggests:
     ggvis,
     devtools
-Remotes:
     
 
